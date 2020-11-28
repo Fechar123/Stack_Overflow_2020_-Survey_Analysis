@@ -1,0 +1,173 @@
+---
+title: "Untitled"
+author: "Fechar Ourotcha"
+date: "11/28/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview:
+
+Every year, StackOverflow deploys a survey to many of its participants. With nearly 65,000 responses fielded from over 180 countries and dependent territories, StackOverflow's 2020 Annual Developer Survey examines all aspects of the developer experience from career satisfaction and job search to education background and opinions on programming tools.
+
+In this analysis, we are going to analyze the survey dataset and draw key insights about the participants in regards to their race, gender, age,language preference, ect. The purpose of this analysis is the provide a detailed insight about programmers which aspiring developers who have not began their journey yet could use to better understand how to outline their carreer goal. The analysis will focus on participants who live in the U.S.
+
+## The Original dataset contain sixty-one variables and 64461 observations, however, we will be using only 11 of those variables. 
+
+```{r,  include=FALSE}
+# Loading the necessary packages and Importing the data
+
+library(tidyverse)
+library(readxl)
+library(assertthat)
+survey_2020 <- read.csv("Survey_Results_Dataset.csv")
+
+# Examming the structure of the dataset and filtering for variables that we are using
+
+
+
+survey_2020_filtered <- survey_2020 %>%
+                        select(WorkWeekHrs, YearsCode, Age, Gender, Ethnicity,EdLevel,
+                               DevType, Country, ConvertedComp, MainBranch,
+                                CompTotal,Age1stCode, DatabaseWorkedWith, DevType, NEWEdImpt, LanguageWorkedWith)
+
+glimpse(survey_2020_filtered)
+
+head(survey_2020_filtered, 20)
+tail(survey_2020_filtered)
+```
+
+We will start of by looking at the gender of the participants. From the chart, we can see that a stagering amount of the participants are male (91%) and only a few are female (7.6%). It is important to note that the category of "Other" are for participants who identify genderqueer or gender non-conforming.  
+```{r,}
+
+# recategorizing the categories within the gender column
+
+survey_2020_filtered <- survey_2020_filtered%>%
+  filter(!is.na(Gender))%>%
+mutate(Gender = fct_collapse(Gender, Other = c("Man;Non-binary, genderqueer, or gender non-conforming",
+                                               "Non-binary, genderqueer, or gender non-conforming",
+                                               "Woman;Man",
+                                               "Woman;Man;Non-binary, genderqueer, or gender non-conforming",
+                                               "Woman;Non-binary, genderqueer, or gender non-conforming")))
+
+
+# Creating a new dataframe for gender
+
+Gender <- survey_2020_filtered %>%
+  group_by(Gender)%>%
+  summarise(count = n())%>%
+  mutate(Percentage = round((count/sum(count))*100, digits = 2))
+# Creating a gender pie chart 
+
+ypos <- cumsum(Gender$Percentage) - 0.5* Gender$Percentage
+ypos <- 100 - ypos
+Gender_plot <- ggplot(Gender, aes(x = "",y = Percentage, fill = Gender))+
+  geom_bar(width = 1, stat = "identity")+ labs(title = "Gender of Participants Within the Survey")
+
+
+Gender_plot + coord_polar("y", start = 0) + theme_minimal() + guides(fill = guide_legend(reverse = T)) + theme(axis.title = element_blank(),
+                                                                    axis.text = element_blank(),
+                                                                    axis.ticks = element_blank(),
+                                                                   panel.border = element_blank(),
+                                                              panel.grid = element_blank())+
+                                                                  geom_text(aes(" ", ypos, label = paste(Percentage, "%")))
+
+```
+
+Next, We will look at the age range of the participants. From the histogram, We can see that the majory of the  partipants of all gender are within there 20s and 30s.
+```{r}
+
+# Checking out the age range of the participants
+
+
+survey_2020_filtered <-  survey_2020_filtered%>%
+  filter(Age <= 100)
+
+  ggplot(survey_2020_filtered, aes(Age, color = Gender))+
+   geom_density()+geom_histogram(binwidth = 2, alpha= 0.5)+ 
+    facet_wrap(~ Gender) +theme_classic()+labs(title = "Distribution of Age among Genders")
+```
+
+Now, lets look at what coding language do most of the participants use.
+```{r}
+
+# spiting the cateegorical variable   
+lang_preference <- survey_2020_filtered%>%
+  mutate(language = str_split(LanguageWorkedWith, ";"))%>%
+  unnest()%>%
+ group_by(language)%>%
+   summarise(count = n())%>%
+  arrange(desc(count))%>%
+  filter(!is.na(language))
+
+A <- ggplot(lang_preference, aes(reorder(language, count), count, fill = language))+
+  geom_bar(stat = "identity", width = 0.3)+coord_flip()+theme_classic()+theme(legend.position = "none")
+
+A + labs(title = "Most Common Language Used by Participants", x = "Languages")
+```
+
+
+How many believe formal education is important for a career as a programmer?
+```{r}
+# Education level 
+Ed_lev <- survey_2020_filtered%>%
+          filter(!is.na(EdLevel))%>%
+          group_by(EdLevel)%>%
+          summarise(count = n())%>%
+  mutate(percent = round((count/sum(count))*100,2))%>%
+         arrange(desc(count))
+
+
+# ggplot(Ed_lev, aes(EdLevel, percent, fill = NEWEdImpt))+
+ # geom_bar(stat = "identity")
+
+# importance of education 
+
+Ed_imp <- survey_2020_filtered%>%
+          filter(!is.na(NEWEdImpt))%>%
+          group_by(NEWEdImpt)%>%
+          summarise(count = n())%>%
+  mutate(percent = round((count/sum(count))*100,2))%>%
+         arrange(desc(count))
+
+
+C <- ggplot(Ed_imp, aes(NEWEdImpt, percent, fill = NEWEdImpt))+
+  geom_bar(stat = "identity")
+
+C + labs(title ="Percentage of Participants in Regards to Importance of Formal Education For a Developer")
+```
+
+One thing that an aspiring programmer wouuld want to know before pursuing a career that deals with programming is the compasention for the diferent type of developers out there. Here we will take a look at the average total compasention of each developer and determine  who make the most. We will also look at how many hour on average each developer type spend at their job.
+```{r, }
+# Average Total comp
+
+comp_and_wrkHrs <- survey_2020_filtered%>%
+  select(WorkWeekHrs,CompTotal, DevType)%>%
+  mutate(types = str_split(DevType, ";"))%>%
+  unnest()%>%
+  group_by(types)%>%
+  summarise(mean_comp = mean(CompTotal, na.rm = T),
+            median_comp = median(CompTotal, na.rm = T),
+            mean_WorkWeekHrs = mean(WorkWeekHrs, na.rm = T),
+            median_WorkWeekHrs = median(WorkWeekHrs, na.rm = T))
+
+
+ggplot(comp_and_wrkHrs, aes(reorder(types, median_comp),median_comp, fill =  types))+
+  geom_bar(stat = "identity", width = 0.4)+coord_flip()+theme_classic()+ theme(legend.position= "none")
+```
+
+
+```{r, }
+ggplot(comp_and_wrkHrs, aes(reorder(types, mean_WorkWeekHrs),mean_WorkWeekHrs, fill =  types))+
+  geom_bar(stat = "identity", width = 0.4)+coord_flip()+theme_classic()+ theme(legend.position= "none")
+
+
+
+```
+
+
+
+
