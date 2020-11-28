@@ -1,0 +1,2 @@
+# Stack_Overflow_2020_-Survey_Analysis
+In this analysis, we are going to analyze the survey dataset and draw key insights about the participants in regards to their race, gender, age,language preference, ect. The purpose of this analysis is the provide a detailed insight about programmers which aspiring developers who have not began their journey yet could use to better understand how to outline their career goal. The analysis will focus on participants who live in the U.S.
